@@ -19,22 +19,19 @@ package namespace
 
 import (
 	"github.com/apache/pulsar-client-go/pulsaradmin/pkg/utils"
-	"github.com/spf13/pflag"
 
 	"github.com/streamnative/pulsarctl/pkg/cmdutils"
 )
 
-func setTopicAutoCreation(vc *cmdutils.VerbCmd) {
+func getTopicAutoCreation(vc *cmdutils.VerbCmd) {
 	desc := cmdutils.LongDescription{}
-	desc.CommandUsedFor = "Set topic auto-creation config for a namespace, overriding broker settings"
+	desc.CommandUsedFor = "Get topic auto-creation config for a namespace"
 	desc.CommandPermission = "This command requires tenant admin permissions."
 
 	var examples []cmdutils.Example
 	topicAutoCreation := cmdutils.Example{
-		Desc: "Set topic auto-creation config for a namespace, overriding broker settings",
-		Command: "pulsarctl namespaces set-topic-auto-creation tenant/namespace \n" +
-			"\t--type partitioned \n" +
-			"\t--partitions 2",
+		Desc:    "Get topic auto-creation config for a namespace",
+		Command: "pulsarctl namespaces get-topic-auto-creation tenant/namespace",
 	}
 	examples = append(examples, topicAutoCreation)
 	desc.CommandExamples = examples
@@ -42,7 +39,11 @@ func setTopicAutoCreation(vc *cmdutils.VerbCmd) {
 	var out []cmdutils.Output
 	successOut := cmdutils.Output{
 		Desc: "normal output",
-		Out:  "Set topic auto-creation config successfully for [tenant/namespace]",
+		Out: `{
+  "enable": true,
+  "type": "partitioned",
+  "partitions": 1,
+}`,
 	}
 
 	noNamespaceName := cmdutils.Output{
@@ -64,53 +65,29 @@ func setTopicAutoCreation(vc *cmdutils.VerbCmd) {
 	desc.CommandOutput = out
 
 	vc.SetDescription(
-		"set-topic-auto-creation",
-		"Set topic auto-creation for a namespace",
+		"get-topic-auto-creation",
+		"Get topic auto-creation for a namespace",
 		desc.ToString(),
 		desc.ExampleToString(),
-		"set-topic-auto-creation",
+		"get-topic-auto-creation",
 	)
 
-	var disable bool
-	var topicType string
-	var partitions int
-
 	vc.SetRunFuncWithNameArg(func() error {
-		return doSetTopicAutoCreation(vc, disable, topicType, partitions)
+		return doGetTopicAutoCreation(vc)
 	}, "the namespace name is not specified or the namespace name is specified more than one")
-
-	vc.FlagSetGroup.InFlagSet("TopicAutoCreation", func(set *pflag.FlagSet) {
-		set.BoolVar(&disable, "disable", false, "disable topic auto-creation")
-		set.StringVar(&topicType, "type", "", "topic type to auto-create")
-		set.IntVar(&partitions, "partitions", 0, "number of partitions on auto-created partitioned topics")
-	})
-	vc.EnableOutputFlagSet()
 }
 
-func doSetTopicAutoCreation(vc *cmdutils.VerbCmd, disable bool, topicType string, partitions int) error {
+func doGetTopicAutoCreation(vc *cmdutils.VerbCmd) error {
 	admin := cmdutils.NewPulsarClient()
 	ns, err := utils.GetNamespaceName(vc.NameArg)
 	if err != nil {
 		return err
 	}
-
-	config := utils.TopicAutoCreationConfig{
-		Allow: !disable,
-	}
-	if !disable {
-		parsedTopicType, err := utils.ParseTopicType(topicType)
-		if err != nil {
-			return err
-		}
-		config.Type = parsedTopicType
-		if parsedTopicType == utils.Partitioned {
-			config.Partitions = &partitions
-		}
-	}
-
-	err = admin.Namespaces().SetTopicAutoCreation(*ns, config)
-	if err == nil {
-		vc.Command.Printf("Set topic auto-creation config successfully for [%s]\n", ns)
+	topicAutoCreation, err := admin.Namespaces().GetTopicAutoCreation(*ns)
+	if topicAutoCreation.Type == "" {
+		vc.Command.Printf("Namespace [%s] has no topic auto-creation config\n", ns)
+	} else if err == nil {
+		cmdutils.PrintJSON(vc.Command.OutOrStdout(), &topicAutoCreation)
 	}
 	return err
 }

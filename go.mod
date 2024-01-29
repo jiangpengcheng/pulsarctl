@@ -3,7 +3,7 @@ module github.com/streamnative/pulsarctl
 go 1.18
 
 require (
-	github.com/apache/pulsar-client-go v0.9.1-0.20230816081803-fbee610ddcbf
+	github.com/apache/pulsar-client-go v0.12.0
 	github.com/docker/go-connections v0.4.0
 	github.com/fatih/color v1.7.0
 	github.com/ghodss/yaml v1.0.0
